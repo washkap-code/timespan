@@ -1,0 +1,176 @@
+/**
+ * TimeSpan shift-scheduling solver.
+ *
+ * Constraint-based solver in the spirit of Timefold: a construction heuristic
+ * builds an initial assignment, then late-acceptance local search improves it.
+ * Score is (hard, soft) — hard violations must reach 0 for a feasible plan.
+ *
+ * Hard constraints:
+ *  H1  Required skill must be present.
+ *  H2  Employee must be available on the shift's day.
+ *  H3  No overlapping shifts for the same employee.
+ *  H4  Max shifts per employee respected.
+ *
+ * Soft constraints:
+ *  S1  Fairness: minimize variance of assigned-shift counts.
+ *  S2  Minimize unassigned shifts (heavily penalized).
+ *  S3  Avoid back-to-back shifts on the same day.
+ */
+
+export interface Employee {
+  id: string;
+  name: string;
+  skills: string[];
+  max_shifts: number;
+  unavailable_days: number[];
+}
+
+export interface Shift {
+  id: string;
+  label: string;
+  day: number; // 0=Mon .. 6=Sun
+  start_hour: number;
+  end_hour: number;
+  required_skill: string | null;
+}
+
+export interface Assignment {
+  shift_id: string;
+  employee_id: string | null;
+}
+
+export interface SolveResult {
+  assignments: Assignment[];
+  score: { hard: number; soft: number };
+  explanation: string[];
+}
+
+type Solution = Map<string, string | null>; // shift_id -> employee_id
+
+function overlaps(a: Shift, b: Shift): boolean {
+  return a.day === b.day && a.start_hour < b.end_hour && b.start_hour < a.end_hour;
+}
+
+function scoreOf(sol: Solution, shifts: Shift[], employees: Employee[]) {
+  const byId = new Map(employees.map((e) => [e.id, e]));
+  const shiftById = new Map(shifts.map((s) => [s.id, s]));
+  let hard = 0;
+  let soft = 0;
+
+  const counts = new Map<string, number>();
+  const perEmployee = new Map<string, Shift[]>();
+
+  for (const [shiftId, empId] of sol) {
+    const shift = shiftById.get(shiftId)!;
+    if (!empId) {
+      soft -= 10; // S2 unassigned
+      continue;
+    }
+    const emp = byId.get(empId);
+    if (!emp) continue;
+    counts.set(empId, (counts.get(empId) ?? 0) + 1);
+    const list = perEmployee.get(empId) ?? [];
+    list.push(shift);
+    perEmployee.set(empId, list);
+
+    if (shift.required_skill && !emp.skills.includes(shift.required_skill)) hard -= 1; // H1
+    if (emp.unavailable_days.includes(shift.day)) hard -= 1; // H2
+  }
+
+  for (const [empId, list] of perEmployee) {
+    const emp = byId.get(empId)!;
+    if (list.length > emp.max_shifts) hard -= list.length - emp.max_shifts; // H4
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        if (overlaps(list[i], list[j])) hard -= 1; // H3
+        else if (list[i].day === list[j].day) soft -= 1; // S3
+      }
+    }
+  }
+
+  // S1 fairness — penalize squared deviation from mean load
+  if (employees.length > 0) {
+    const mean = shifts.length / employees.length;
+    for (const e of employees) {
+      const c = counts.get(e.id) ?? 0;
+      soft -= Math.round(Math.abs(c - mean) ** 2);
+    }
+  }
+
+  return { hard, soft };
+}
+
+function better(a: { hard: number; soft: number }, b: { hard: number; soft: number }) {
+  return a.hard > b.hard || (a.hard === b.hard && a.soft > b.soft);
+}
+
+export function solve(employees: Employee[], shifts: Shift[], timeMs = 900): SolveResult {
+  // --- Construction heuristic: hardest shifts first, best-fit employee ---
+  const sol: Solution = new Map();
+  const sorted = [...shifts].sort((a, b) => {
+    const aSkill = a.required_skill ? 1 : 0;
+    const bSkill = b.required_skill ? 1 : 0;
+    return bSkill - aSkill;
+  });
+
+  for (const shift of sorted) {
+    let bestEmp: string | null = null;
+    let bestScore = { hard: -Infinity, soft: -Infinity };
+    for (const emp of employees) {
+      sol.set(shift.id, emp.id);
+      const s = scoreOf(sol, shifts, employees);
+      if (better(s, bestScore)) {
+        bestScore = s;
+        bestEmp = emp.id;
+      }
+    }
+    sol.set(shift.id, bestEmp);
+  }
+
+  // --- Late-acceptance hill climbing ---
+  let current = scoreOf(sol, shifts, employees);
+  let best = current;
+  let bestSol: Solution = new Map(sol);
+  const lateSize = 40;
+  const late: { hard: number; soft: number }[] = Array(lateSize).fill(current);
+  const start = Date.now();
+  let iter = 0;
+
+  while (Date.now() - start < timeMs && shifts.length > 0 && employees.length > 0) {
+    iter++;
+    const shift = shifts[Math.floor(Math.random() * shifts.length)];
+    const prev = sol.get(shift.id) ?? null;
+    const pick =
+      Math.random() < 0.1 ? null : employees[Math.floor(Math.random() * employees.length)].id;
+    if (pick === prev) continue;
+    sol.set(shift.id, pick);
+    const cand = scoreOf(sol, shifts, employees);
+    const lateVal = late[iter % lateSize];
+    if (better(cand, current) || cand.hard > lateVal.hard || (cand.hard === lateVal.hard && cand.soft >= lateVal.soft)) {
+      current = cand;
+      if (better(cand, best)) {
+        best = cand;
+        bestSol = new Map(sol);
+      }
+    } else {
+      sol.set(shift.id, prev);
+    }
+    late[iter % lateSize] = current;
+  }
+
+  const explanation: string[] = [];
+  explanation.push(
+    best.hard === 0
+      ? "Feasible: all hard constraints (skills, availability, overlaps, max load) satisfied."
+      : `${-best.hard} hard constraint violation(s) remain — add employees, skills or availability.`
+  );
+  const unassigned = [...bestSol.values()].filter((v) => v === null).length;
+  if (unassigned > 0) explanation.push(`${unassigned} shift(s) could not be assigned.`);
+  explanation.push(`Soft score ${best.soft} after ${iter.toLocaleString()} local-search moves (fairness + rest optimization).`);
+
+  return {
+    assignments: shifts.map((s) => ({ shift_id: s.id, employee_id: bestSol.get(s.id) ?? null })),
+    score: best,
+    explanation,
+  };
+}

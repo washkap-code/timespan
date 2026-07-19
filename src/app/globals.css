@@ -1,0 +1,64 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Primitive tokens */
+  --color-violet-600: #7c3aed;
+  --color-violet-400: #a78bfa;
+  --color-cyan-400: #22d3ee;
+  --color-ink-950: #0b0b14;
+  --color-ink-900: #12121e;
+  --color-ink-800: #1a1a2b;
+
+  /* Semantic tokens */
+  --color-background: var(--color-ink-950);
+  --color-surface: var(--color-ink-900);
+  --color-primary: var(--color-violet-600);
+  --color-accent: var(--color-cyan-400);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-background);
+  color: #f2f2f8;
+  font-family: Inter, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.text-gradient {
+  background: linear-gradient(100deg, #a78bfa 0%, #7c3aed 45%, #22d3ee 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.glass {
+  background: rgba(18, 18, 30, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(124, 58, 237, 0.15);
+}
+
+.glow-ring:hover {
+  box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.4), 0 0 40px rgba(124, 58, 237, 0.25);
+}
+
+::selection {
+  background: rgba(124, 58, 237, 0.4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
