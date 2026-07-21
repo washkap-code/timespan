@@ -232,7 +232,7 @@ export function HowItWorks() {
 
 const pillars = [
   { title: "Easy to integrate", body: "Stateless REST over JSON. Technology-agnostic. Test with your own data in a few lines of code." },
-  { title: "Proven at scale", body: "Schedule hundreds of thousands of shifts and tens of thousands of jobs in a single run." },
+  { title: "Fast by design", body: "Construction heuristic plus local-search optimization returns a scored, feasible plan in about a second for a realistic weekly roster." },
   { title: "Explainable by design", body: "Every assignment comes with a score breakdown, so planners can see exactly why the plan looks the way it does." },
   { title: "Real-world complexity", body: "Skills, fairness, rest rules, dependencies, capacity and drive time — 23 built-in constraint types across four solvers, plus custom rules you define yourself." },
 ];

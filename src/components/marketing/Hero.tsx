@@ -72,7 +72,7 @@ export function Hero() {
           </a>
         </div>
         <p data-hero className="mt-8 font-mono text-xs text-muted">
-          JSON in → optimized schedule out / No solver expertise required / 99.99% uptime
+          JSON in → optimized schedule out / No solver expertise required / Deployed on Vercel&apos;s global edge network
         </p>
       </div>
     </section>
