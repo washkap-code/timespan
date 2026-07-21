@@ -15,10 +15,11 @@ export function getStripe(): Stripe {
   if (_stripe) return _stripe;
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) throw new Error("Billing is not configured — STRIPE_SECRET_KEY is missing.");
-  // Cast the config object rather than pinning a literal apiVersion type —
-  // the Stripe SDK ties that literal to the exact installed package version,
-  // and we'd rather track whatever version npm resolves than fail the build
-  // over a string-literal mismatch.
-  _stripe = new Stripe(key, { apiVersion: "2024-12-18.acacia" } as Stripe.StripeConfig);
+  // Cast through `unknown` rather than pinning a literal apiVersion type —
+  // the Stripe SDK ties that literal to the exact installed package version
+  // (a straight `as Stripe.StripeConfig` still fails if the literal doesn't
+  // match), and we'd rather track whatever version npm resolves than fail
+  // the build over a string-literal mismatch.
+  _stripe = new Stripe(key, { apiVersion: "2025-02-24.acacia" } as unknown as Stripe.StripeConfig);
   return _stripe;
 }
