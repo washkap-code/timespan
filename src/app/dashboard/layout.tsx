@@ -9,6 +9,9 @@ const nav = [
   { href: "/dashboard", label: "Overview" },
   { href: "/dashboard/scheduler", label: "Shift Scheduler" },
   { href: "/dashboard/tasks", label: "Task Scheduler" },
+  { href: "/dashboard/field-service", label: "Field Service Routing" },
+  { href: "/dashboard/pickup-delivery", label: "Pickup & Delivery" },
+  { href: "/dashboard/copilot", label: "Copilot" },
   { href: "/dashboard/roadmap", label: "Roadmap" },
   { href: "/dashboard/support", label: "Support" },
 ];

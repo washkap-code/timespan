@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { getSessionWithRole } from "@/lib/supabase/admin";
+import { UpgradeButton } from "@/components/billing/UpgradeButton";
 
 async function updatePrice(formData: FormData) {
   "use server";
@@ -40,9 +41,29 @@ const FEATURE_LABELS: Record<string, string> = {
   self_hosted_available: "Self-hosted available",
 };
 
-export default async function AdminPlans() {
+export default async function AdminPlans({
+  searchParams,
+}: {
+  searchParams: Promise<{ checkout?: string }>;
+}) {
   const supabase = await createClient();
-  const { data: plans } = await supabase.from("plans").select("*").order("sort_order");
+  const { user } = await getSessionWithRole();
+  const { checkout } = await searchParams;
+
+  const [{ data: plans }, { data: profile }] = await Promise.all([
+    supabase.from("plans").select("*").order("sort_order"),
+    user
+      ? supabase.from("profiles").select("organization_id").eq("id", user.id).single()
+      : Promise.resolve({ data: null }),
+  ]);
+
+  const { data: myOrg } = profile?.organization_id
+    ? await supabase
+        .from("organizations")
+        .select("id,name,plan_id,subscription_status,stripe_customer_id")
+        .eq("id", profile.organization_id)
+        .single()
+    : { data: null };
 
   return (
     <div>
@@ -50,6 +71,40 @@ export default async function AdminPlans() {
       <p className="mt-1 text-sm text-muted">
         Three tiers mirroring the market structure — API-first, team collaboration, and full intelligence suite.
       </p>
+
+      {checkout === "success" && (
+        <p className="mt-4 rounded-lg border border-success/40 bg-success/10 px-4 py-2.5 text-sm text-success">
+          Checkout complete — your plan updates as soon as Stripe confirms the subscription (usually a few seconds).
+        </p>
+      )}
+      {checkout === "canceled" && (
+        <p className="mt-4 rounded-lg border border-border bg-surface px-4 py-2.5 text-sm text-muted">
+          Checkout was canceled — no changes were made.
+        </p>
+      )}
+
+      {myOrg && (
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-surface p-5">
+          <div>
+            <p className="text-sm font-semibold">{myOrg.name}</p>
+            <p className="text-xs text-muted">
+              Current plan: <span className="capitalize">{myOrg.plan_id}</span>
+              {myOrg.stripe_customer_id && ` · Stripe customer ${myOrg.stripe_customer_id.slice(0, 12)}…`}
+            </p>
+          </div>
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${
+              myOrg.subscription_status === "active"
+                ? "bg-success/15 text-success"
+                : myOrg.subscription_status === "none"
+                  ? "bg-surface-2 text-muted"
+                  : "bg-warning/15 text-warning"
+            }`}
+          >
+            {myOrg.subscription_status ?? "none"}
+          </span>
+        </div>
+      )}
 
       <div className="mt-6 grid gap-5 lg:grid-cols-3">
         {(plans ?? []).map((p) => (
@@ -92,6 +147,16 @@ export default async function AdminPlans() {
                   </li>
                 ))}
             </ul>
+
+            {myOrg && Number(p.price_monthly) > 0 && (
+              <div className="mt-5 border-t border-border pt-4">
+                {myOrg.plan_id === p.id ? (
+                  <p className="rounded-lg bg-surface-2 px-4 py-2 text-center text-xs font-medium text-muted">Current plan</p>
+                ) : (
+                  <UpgradeButton planId={p.id} label={`Upgrade to ${p.name} — $${p.price_monthly}/mo`} />
+                )}
+              </div>
+            )}
           </div>
         ))}
       </div>

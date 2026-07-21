@@ -19,9 +19,9 @@ const products = [
   },
   {
     name: "Field Service Routing",
-    desc: "Optimize technician schedules and travel. Time windows, skills and SLAs, replanned in real time.",
-    tag: "Coming soon",
-    live: false,
+    desc: "Optimize technician schedules and travel. Time windows, skills and real drive-time routing, solved together.",
+    tag: "Live in platform",
+    live: true,
     icon: (
       <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6" stroke="currentColor" strokeWidth="1.6">
         <path d="M9 20l-5.5-2.5v-13L9 7l6-2.5L20.5 7v13L15 17.5 9 20z" strokeLinejoin="round" />
@@ -31,9 +31,9 @@ const products = [
   },
   {
     name: "Pickup & Delivery Routing",
-    desc: "Optimize every pickup, drop-off and route. Capacities, precedence and same-day disruption handling.",
-    tag: "Coming soon",
-    live: false,
+    desc: "Optimize every pickup, drop-off and route. Vehicle capacity, precedence and time windows, solved together.",
+    tag: "Live in platform",
+    live: true,
     icon: (
       <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6" stroke="currentColor" strokeWidth="1.6">
         <path d="M3 7h11v10H3zM14 10h4l3 3v4h-7z" strokeLinejoin="round" />
@@ -129,11 +129,16 @@ const useCases = [
     title: "Project delivery across shared crews",
     body: "Sequence client deliverables that depend on each other, balance load across a small bench of specialists, and get an early warning when a priority project is going to land late.",
   },
-];
-
-const roadmapVerticals = [
-  { name: "Field Service Routing", body: "Technician dispatch with travel time, time windows and skills — in development." },
-  { name: "Pickup & Delivery Routing", body: "Route optimization for courier and delivery fleets — in development." },
+  {
+    tag: "Field service & utilities",
+    title: "Technician dispatch across a service territory",
+    body: "Match certified technicians to jobs by skill, honor customer time windows, and sequence the day's route by real drive time instead of a dispatcher's best guess at the map.",
+  },
+  {
+    tag: "Courier & last-mile delivery",
+    title: "Same-day pickup and drop-off routing",
+    body: "Keep every parcel's pickup ahead of its delivery on the same vehicle, stay under capacity on every leg, and hit delivery windows without a driver improvising the route on the fly.",
+  },
 ];
 
 export function UseCases() {
@@ -144,7 +149,7 @@ export function UseCases() {
           Built for how <span className="text-gradient">real teams schedule</span>
         </h2>
         <p data-reveal className="mt-4 max-w-xl text-muted">
-          Employee Shift Scheduling and Task Scheduling are live in the platform today. Here&apos;s where teams are putting them to work.
+          Employee Shift Scheduling, Task Scheduling, Field Service Routing and Pickup &amp; Delivery Routing are all live in the platform today. Here&apos;s where teams are putting them to work.
         </p>
       </Reveal>
       <Reveal className="mt-12 grid gap-5 sm:grid-cols-2">
@@ -158,14 +163,13 @@ export function UseCases() {
       </Reveal>
 
       <Reveal className="mt-16">
-        <p data-reveal className="text-xs font-medium uppercase tracking-widest text-muted">On the roadmap</p>
-        <div data-reveal className="mt-5 grid gap-4 sm:grid-cols-3">
-          {roadmapVerticals.map((r) => (
-            <div key={r.name} className="rounded-xl border border-dashed border-border bg-transparent p-5">
-              <h4 className="text-sm font-semibold text-foreground">{r.name}</h4>
-              <p className="mt-1.5 text-sm text-muted">{r.body}</p>
-            </div>
-          ))}
+        <div data-reveal className="rounded-2xl border border-primary/30 bg-primary/5 p-7">
+          <p className="text-xs font-medium uppercase tracking-widest text-primary-light">New — Copilot</p>
+          <h4 className="mt-2 text-lg font-semibold">Ask your schedule why, not just what</h4>
+          <p className="mt-2 max-w-2xl text-sm text-muted">
+            Copilot reads your actual constraint breakdown and metrics from your latest solve and answers questions in plain language —
+            which hard constraint is blocking a feasible plan, what to add or change to fix it, grounded only in your real data.
+          </p>
         </div>
       </Reveal>
     </section>

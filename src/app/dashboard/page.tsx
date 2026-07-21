@@ -122,6 +122,45 @@ export default async function Dashboard() {
             Open task scheduler
           </Link>
         </div>
+        <div className="rounded-2xl border border-border bg-surface p-8">
+          <h2 className="text-lg font-semibold">Field Service Routing</h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted">
+            Sequence site visits across your technicians using real drive-time estimates. Skills, time
+            windows and shift length are solved together.
+          </p>
+          <Link
+            href="/dashboard/field-service"
+            className="glow-ring mt-5 inline-block cursor-pointer rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-primary-dark"
+          >
+            Open field service routing
+          </Link>
+        </div>
+        <div className="rounded-2xl border border-border bg-surface p-8">
+          <h2 className="text-lg font-semibold">Pickup & Delivery Routing</h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted">
+            Route vehicles through pickup and delivery pairs. Capacity, precedence and time windows are
+            solved together against real drive time.
+          </p>
+          <Link
+            href="/dashboard/pickup-delivery"
+            className="glow-ring mt-5 inline-block cursor-pointer rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-primary-dark"
+          >
+            Open pickup & delivery routing
+          </Link>
+        </div>
+        <div className="rounded-2xl border border-primary/30 bg-primary/5 p-8">
+          <h2 className="text-lg font-semibold">Copilot</h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted">
+            Ask questions about your latest solve in plain language — grounded in your real constraint
+            breakdown and metrics, never invented.
+          </p>
+          <Link
+            href="/dashboard/copilot"
+            className="glow-ring mt-5 inline-block cursor-pointer rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white transition-all duration-200 hover:bg-primary-dark"
+          >
+            Ask Copilot
+          </Link>
+        </div>
       </div>
     </div>
   );
