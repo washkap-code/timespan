@@ -2,8 +2,37 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { solveTasks, type TaskResource, type Job } from "@/lib/solver/task-solver";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import { resolveApiKeyAuth } from "@/lib/api-auth";
+import { solveLimitForPlan } from "@/lib/plan-limits";
 
 export async function POST(request: Request) {
+  // API-key path: stateless, same pattern as /api/solve — see comment there.
+  const apiKeyAuth = await resolveApiKeyAuth(request);
+  if (apiKeyAuth) {
+    const limit = solveLimitForPlan(apiKeyAuth.planId);
+    const limitResult = rateLimit(`solve-tasks:key:${apiKeyAuth.keyId}`, limit, 60_000);
+    if (!limitResult.ok) {
+      return NextResponse.json(
+        { error: `Rate limit exceeded for your plan (${limit}/min). Upgrade your plan for higher limits.` },
+        { status: 429, headers: { "Retry-After": Math.ceil((limitResult.resetAt - Date.now()) / 1000).toString() } }
+      );
+    }
+    let body: { resources?: TaskResource[]; jobs?: Job[] };
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+    }
+    if (!Array.isArray(body.resources) || !Array.isArray(body.jobs) || body.resources.length === 0 || body.jobs.length === 0) {
+      return NextResponse.json(
+        { error: "resources and jobs arrays are required in the request body for API-key calls." },
+        { status: 400 }
+      );
+    }
+    const result = solveTasks(body.resources, body.jobs, 900);
+    return NextResponse.json({ mode: "stateless", ...result });
+  }
+
   const supabase = await createClient();
   const {
     data: { user },

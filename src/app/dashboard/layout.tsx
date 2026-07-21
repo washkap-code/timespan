@@ -12,6 +12,7 @@ const nav = [
   { href: "/dashboard/field-service", label: "Field Service Routing" },
   { href: "/dashboard/pickup-delivery", label: "Pickup & Delivery" },
   { href: "/dashboard/copilot", label: "Copilot" },
+  { href: "/dashboard/api-keys", label: "API keys" },
   { href: "/dashboard/roadmap", label: "Roadmap" },
   { href: "/dashboard/support", label: "Support" },
 ];

@@ -55,34 +55,49 @@ export default function DocsPage() {
           <div className="space-y-16 text-sm leading-relaxed text-muted">
             <div id="quick-start">
               <h2 className="text-xl font-semibold text-foreground">Quick start</h2>
-              <p className="mt-3">
-                TimeSpan&apos;s API sits behind your account&apos;s session — there are no separate API keys yet
-                (a dedicated API-key flow for server-to-server use is on the roadmap). To make your first call:
-              </p>
+              <p className="mt-3">There are two ways to call TimeSpan&apos;s solve endpoints:</p>
               <ol className="mt-4 list-decimal space-y-2 pl-5">
                 <li>
+                  <strong className="text-foreground">API key (server-to-server, stateless).</strong>{" "}
                   <Link href="/login?mode=signup" className="cursor-pointer text-primary-light underline">
                     Create a TimeSpan account
-                  </Link>{" "}
-                  and sign in.
+                  </Link>
+                  , generate a key from{" "}
+                  <Link href="/dashboard/api-keys" className="cursor-pointer text-primary-light underline">
+                    Dashboard → API keys
+                  </Link>
+                  , then send your full dataset in the request body with an{" "}
+                  <code className="rounded bg-surface-2 px-1.5 py-0.5 text-primary-light">Authorization: Bearer</code> header — nothing
+                  is read from or written to your account, you get the solved result straight back.
                 </li>
-                <li>Add at least one employee/resource and one shift/job — either manually or with the &quot;Load demo&quot; button in the dashboard.</li>
                 <li>
-                  Call <code className="rounded bg-surface-2 px-1.5 py-0.5 text-primary-light">POST /api/solve</code> (or{" "}
-                  <code className="rounded bg-surface-2 px-1.5 py-0.5 text-primary-light">/api/solve-tasks</code>) from your
-                  signed-in browser session, or from a server using a forwarded session cookie.
+                  <strong className="text-foreground">Dashboard session (stateful).</strong> Sign in, add employees/shifts (or
+                  load demo data) in the dashboard, then call the same endpoint from your signed-in browser session — the
+                  result is saved to your account and shows up in the UI too.
                 </li>
-                <li>Read back the generated schedule, score, and constraint breakdown in the JSON response.</li>
+                <li>Either way, read back the score, constraint breakdown, and metrics in the JSON response.</li>
               </ol>
             </div>
 
             <div id="auth">
               <h2 className="text-xl font-semibold text-foreground">Authentication</h2>
               <p className="mt-3">
-                All API routes require a signed-in Supabase session (email/password or Google OAuth). Requests
-                without a valid session return <code className="rounded bg-surface-2 px-1.5 py-0.5">401 Unauthorized</code>.
-                Every request is also scoped by row-level security — you can only read and solve against your own
-                data, or your organization&apos;s if you&apos;re a member.
+                <strong className="text-foreground">API keys</strong> — pass{" "}
+                <code className="rounded bg-surface-2 px-1.5 py-0.5">Authorization: Bearer ts_live_...</code> on any solve
+                endpoint. Keys are created and revoked from{" "}
+                <Link href="/dashboard/api-keys" className="cursor-pointer text-primary-light underline">Dashboard → API keys</Link>,
+                are shown in full only once at creation, and stored as a hash — TimeSpan can&apos;t recover a lost key,
+                only issue a new one. API-key calls run in stateless mode: send the full dataset, get the result back,
+                nothing persisted. Rate limits scale with your plan.
+              </p>
+              <p className="mt-3">
+                <strong className="text-foreground">Dashboard session</strong> — a signed-in Supabase session
+                (email/password or Google OAuth), used by the web UI and any server-side code forwarding that session
+                cookie. This path reads/writes your stored employees, shifts, jobs, and results, scoped by row-level
+                security to your own data or your organization&apos;s.
+              </p>
+              <p className="mt-3">
+                Requests without a valid key or session return <code className="rounded bg-surface-2 px-1.5 py-0.5">401 Unauthorized</code>.
               </p>
             </div>
 
@@ -93,6 +108,19 @@ export default function DocsPage() {
                 employees and shifts currently stored on your account.
               </p>
               <p className="mt-4 font-mono text-xs text-accent">POST /api/solve</p>
+              <p className="mt-3 font-medium text-foreground">API key (stateless)</p>
+              <CodeBlock>{`curl -X POST https://timespan.online/api/solve \\
+  -H "Content-Type: application/json" \\
+  -H "Authorization: Bearer ts_live_..." \\
+  -d '{
+    "employees": [
+      { "id": "amy", "name": "Amy", "skills": ["barista"], "max_shifts": 5, "unavailable_days": [] }
+    ],
+    "shifts": [
+      { "id": "sat-am", "label": "Saturday AM", "day": 5, "start_hour": 8, "end_hour": 12, "required_skill": "barista" }
+    ]
+  }'`}</CodeBlock>
+              <p className="mt-3 font-medium text-foreground">Dashboard session (stateful)</p>
               <CodeBlock>{`curl -X POST https://timespan.online/api/solve \\
   -H "Content-Type: application/json" \\
   -H "Cookie: <your session cookie>" \\
@@ -134,6 +162,11 @@ export default function DocsPage() {
                 capacity for the resources and jobs currently stored on your account.
               </p>
               <p className="mt-4 font-mono text-xs text-accent">POST /api/solve-tasks</p>
+              <p className="mt-3 text-xs text-muted">
+                Same two auth modes as above. API-key calls pass{" "}
+                <code className="rounded bg-surface-2 px-1.5 py-0.5">{`{ "resources": [...], "jobs": [...] }`}</code> in
+                the body instead of reading stored data.
+              </p>
               <CodeBlock>{`curl -X POST https://timespan.online/api/solve-tasks \\
   -H "Content-Type: application/json" \\
   -H "Cookie: <your session cookie>" \\
@@ -161,6 +194,11 @@ export default function DocsPage() {
                 length together.
               </p>
               <p className="mt-4 font-mono text-xs text-accent">POST /api/solve-field-service</p>
+              <p className="mt-3 text-xs text-muted">
+                API-key calls pass{" "}
+                <code className="rounded bg-surface-2 px-1.5 py-0.5">{`{ "technicians": [...], "jobs": [...] }`}</code> in
+                the body instead of reading stored data.
+              </p>
               <CodeBlock>{`curl -X POST https://timespan.online/api/solve-field-service \\
   -H "Content-Type: application/json" \\
   -H "Cookie: <your session cookie>" \\
@@ -193,6 +231,11 @@ export default function DocsPage() {
                 vehicle, and time windows on both ends of each job.
               </p>
               <p className="mt-4 font-mono text-xs text-accent">POST /api/solve-pickup-delivery</p>
+              <p className="mt-3 text-xs text-muted">
+                API-key calls pass{" "}
+                <code className="rounded bg-surface-2 px-1.5 py-0.5">{`{ "vehicles": [...], "jobs": [...] }`}</code> in
+                the body instead of reading stored data.
+              </p>
               <CodeBlock>{`curl -X POST https://timespan.online/api/solve-pickup-delivery \\
   -H "Content-Type: application/json" \\
   -H "Cookie: <your session cookie>" \\
@@ -254,8 +297,9 @@ X-Webhook-Secret: <your configured secret>
             <div id="rate-limits">
               <h2 className="text-xl font-semibold text-foreground">Rate limits</h2>
               <p className="mt-3">
-                Solve endpoints are capped at 20 requests per minute per account (plus a secondary per-IP cap) to
-                keep the platform responsive for everyone. If you exceed the limit you&apos;ll get a{" "}
+                Dashboard (session) calls are capped at 20 requests per minute per account (plus a secondary
+                per-IP cap). API-key calls are capped per plan instead: 5/min on Launch, 30/min on Team, 120/min on
+                Enterprise. If you exceed the limit you&apos;ll get a{" "}
                 <code className="rounded bg-surface-2 px-1.5 py-0.5">429</code> response with a{" "}
                 <code className="rounded bg-surface-2 px-1.5 py-0.5">Retry-After</code> header telling you how many
                 seconds to wait. Copilot is capped separately at 15 requests per minute per account.

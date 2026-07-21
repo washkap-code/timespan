@@ -1,0 +1,33 @@
+name: CI
+
+# Runs the same install → lint → build sequence Vercel runs on deploy, but
+# on every push and pull request against main — so a broken build (like a
+# TypeScript type error) is caught here instead of after it's already live
+# in production.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      # Placeholder public values only — these are meant to be public
+      # (NEXT_PUBLIC_*) and let the build run without needing real Supabase
+      # secrets configured in GitHub. Pages that fetch from Supabase at
+      # build time degrade gracefully (empty data) rather than throwing.
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      # No package-lock.json is committed (matching how Vercel deploys this
+      # project today), so `npm ci` isn't usable here — it requires a lockfile.
+      - run: npm install --no-audit --no-fund
+      - run: npm run lint
+      - run: npm run build
