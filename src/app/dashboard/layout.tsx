@@ -8,6 +8,17 @@ import { Logo } from "@/components/Logo";
 const nav = [
   { href: "/dashboard", label: "Overview" },
   { href: "/dashboard/scheduler", label: "Shift Scheduler" },
+  { href: "/dashboard/roadmap", label: "Roadmap" },
+  { href: "/dashboard/support", label: "Support" },
+];
+
+const adminNav = [
+  { href: "/dashboard/admin", label: "Admin overview" },
+  { href: "/dashboard/admin/users", label: "Users" },
+  { href: "/dashboard/admin/organizations", label: "Organizations" },
+  { href: "/dashboard/admin/plans", label: "Plans & billing" },
+  { href: "/dashboard/admin/support", label: "Support" },
+  { href: "/dashboard/admin/roadmap", label: "Roadmap" },
 ];
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -33,6 +44,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               className={`cursor-pointer rounded-lg px-3 py-2 text-sm transition-colors duration-150 ${
                 pathname === n.href
                   ? "bg-primary/15 font-medium text-primary-light"
+                  : "text-muted hover:bg-surface-2 hover:text-foreground"
+              }`}
+            >
+              {n.label}
+            </Link>
+          ))}
+        </nav>
+
+        <p className="mb-1.5 mt-6 px-3 text-[10px] font-semibold uppercase tracking-widest text-muted/70">Admin</p>
+        <nav className="flex flex-col gap-1">
+          {adminNav.map((n) => (
+            <Link
+              key={n.href}
+              href={n.href}
+              className={`cursor-pointer rounded-lg px-3 py-2 text-sm transition-colors duration-150 ${
+                pathname === n.href
+                  ? "bg-accent/15 font-medium text-accent"
                   : "text-muted hover:bg-surface-2 hover:text-foreground"
               }`}
             >

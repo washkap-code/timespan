@@ -5,10 +5,10 @@ import { useEffect, useState } from "react";
 import { Logo } from "@/components/Logo";
 
 const links = [
-  { href: "#products", label: "Products" },
-  { href: "#how-it-works", label: "How it works" },
-  { href: "#platform", label: "Platform" },
-  { href: "#stats", label: "Results" },
+  { href: "/#products", label: "Products" },
+  { href: "/#how-it-works", label: "How it works" },
+  { href: "/#platform", label: "Platform" },
+  { href: "/pricing", label: "Pricing" },
 ];
 
 export function Nav() {
@@ -33,13 +33,13 @@ export function Nav() {
         </Link>
         <div className="hidden items-center gap-8 md:flex">
           {links.map((l) => (
-            <a
+            <Link
               key={l.href}
               href={l.href}
               className="cursor-pointer text-sm text-muted transition-colors duration-200 hover:text-foreground"
             >
               {l.label}
-            </a>
+            </Link>
           ))}
         </div>
         <div className="flex items-center gap-3">

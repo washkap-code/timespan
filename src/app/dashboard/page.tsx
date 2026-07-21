@@ -7,10 +7,16 @@ export default async function Dashboard() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [{ count: employees }, { count: shifts }, { count: schedules }] = await Promise.all([
+  const [{ count: employees }, { count: shifts }, { count: schedules }, { data: latest }] = await Promise.all([
     supabase.from("employees").select("*", { count: "exact", head: true }),
     supabase.from("shifts").select("*", { count: "exact", head: true }),
     supabase.from("schedules").select("*", { count: "exact", head: true }),
+    supabase
+      .from("schedules")
+      .select("id,name,status,score_hard,score_soft,constraint_breakdown,created_at")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
 
   const cards = [
@@ -18,6 +24,11 @@ export default async function Dashboard() {
     { label: "Shifts", value: shifts ?? 0 },
     { label: "Solved schedules", value: schedules ?? 0 },
   ];
+
+  const breakdown = (latest?.constraint_breakdown as { code: string; label: string; severity: string; count: number }[]) || [];
+  const unassigned = breakdown.find((b) => b.code === "S2")?.count ?? 0;
+  const totalShifts = shifts ?? 0;
+  const coverage = totalShifts > 0 ? Math.round(((totalShifts - unassigned) / totalShifts) * 100) : 0;
 
   return (
     <div>
@@ -33,7 +44,31 @@ export default async function Dashboard() {
         ))}
       </div>
 
-      <div className="mt-10 max-w-3xl rounded-2xl border border-border bg-surface p-8">
+      {latest && (
+        <div className="mt-6 max-w-3xl rounded-2xl border border-border bg-surface p-6">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-muted">Latest run KPIs</h2>
+          <div className="mt-4 grid grid-cols-3 gap-4">
+            <div>
+              <p className="text-2xl font-bold text-accent">{coverage}%</p>
+              <p className="text-xs text-muted">Shift coverage</p>
+            </div>
+            <div>
+              <p className={`text-2xl font-bold ${latest.status === "feasible" ? "text-success" : "text-warning"}`}>
+                {latest.status === "feasible" ? "Feasible" : "Infeasible"}
+              </p>
+              <p className="text-xs text-muted">Plan status</p>
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-primary-light">
+                {latest.score_hard}h / {latest.score_soft}s
+              </p>
+              <p className="text-xs text-muted">Score</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="mt-6 max-w-3xl rounded-2xl border border-border bg-surface p-8">
         <h2 className="text-lg font-semibold">Employee Shift Scheduling</h2>
         <p className="mt-2 text-sm leading-relaxed text-muted">
           Load a demo roster or your own data, then run the constraint solver to generate a fair,
