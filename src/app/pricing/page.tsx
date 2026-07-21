@@ -11,9 +11,12 @@ const TIER_STYLE: Record<string, string> = {
 
 const FEATURE_LABELS: Record<string, string> = {
   pure_api: "Pure API access — built for developers",
+  api_docs: "Full API documentation & reference",
   solver_engine: "Production-grade optimization engine",
   webhooks: "Webhook configuration",
   multi_user: "Multi-user collaboration",
+  single_seat: "Single-seat access",
+  onboarding_guides: "Self-serve onboarding guides",
   dataset_overview: "Dataset overview — list, search, categorize runs",
   score_analysis: "Score analysis & constraint X-Ray",
   plan_visualizations: "Plan visualizations (grid & timeline)",
