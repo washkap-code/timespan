@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { TrendChart } from "@/components/admin/TrendChart";
 
 export default async function AdminOverview() {
   const supabase = await createClient();
@@ -13,6 +14,7 @@ export default async function AdminOverview() {
     { data: orgs },
     { count: openTickets },
     { count: roadmapCount },
+    { data: trendRuns },
   ] = await Promise.all([
     supabase.from("profiles").select("*", { count: "exact", head: true }),
     supabase.from("organizations").select("*", { count: "exact", head: true }),
@@ -23,7 +25,11 @@ export default async function AdminOverview() {
     supabase.from("organizations").select("plan_id"),
     supabase.from("support_tickets").select("*", { count: "exact", head: true }).eq("status", "open"),
     supabase.from("roadmap_requests").select("*", { count: "exact", head: true }),
+    supabase.from("schedules").select("metrics,created_at").order("created_at", { ascending: true }).limit(30),
   ]);
+
+  type Metrics = { coverage?: number; fairnessIndex?: number; utilization?: number };
+  const metricSeries = (trendRuns ?? []).map((r) => (r.metrics ?? {}) as Metrics);
 
   const feasible = (schedules ?? []).filter((s) => s.status === "feasible").length;
   const planCounts = (orgs ?? []).reduce<Record<string, number>>((acc, o) => {
@@ -95,6 +101,21 @@ export default async function AdminOverview() {
               <p className="text-xs text-muted">roadmap items</p>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="mt-10 rounded-2xl border border-border bg-surface p-6">
+        <h2 className="text-lg font-semibold">Solve quality over time</h2>
+        <p className="mt-1 text-sm text-muted">Coverage, fairness and utilization across the last {metricSeries.length} shift-schedule runs.</p>
+        <div className="mt-5">
+          <TrendChart
+            series={[
+              { label: "Coverage %", color: "#22D3EE", values: metricSeries.map((m) => m.coverage ?? 0) },
+              { label: "Fairness index", color: "#A78BFA", values: metricSeries.map((m) => m.fairnessIndex ?? 0) },
+              { label: "Utilization %", color: "#FBBF24", values: metricSeries.map((m) => m.utilization ?? 0) },
+            ]}
+          />
+          {metricSeries.length === 0 && <p className="mt-2 text-xs text-muted">No runs with metrics yet.</p>}
         </div>
       </div>
 

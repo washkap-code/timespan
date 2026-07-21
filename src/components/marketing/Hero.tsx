@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useRef } from "react";
-import gsap from "gsap";
 
 const HERO_VIDEO =
   "https://d8j0ntlcm91z4.cloudfront.net/user_3ElGe2DKz4uM8bNdNIuLQ1fI9mR/hf_20260719_171449_754d1117-89dd-4c24-990d-3f0e2b1eac84.mp4";
@@ -13,17 +12,21 @@ export function Hero() {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const ctx = gsap.context(() => {
-      gsap.from("[data-hero]", {
-        opacity: 0,
-        y: 28,
-        duration: 0.7,
-        stagger: 0.12,
-        ease: "expo.out",
-        delay: 0.15,
-      });
-    }, el);
-    return () => ctx.revert();
+    const targets = Array.from(el.querySelectorAll<HTMLElement>("[data-hero]"));
+    targets.forEach((target, i) => {
+      if (typeof target.animate !== "function") return;
+      try {
+        target.animate(
+          [
+            { opacity: 0, transform: "translateY(28px)" },
+            { opacity: 1, transform: "translateY(0)" },
+          ],
+          { duration: 700, delay: 150 + i * 120, easing: "cubic-bezier(0.16, 1, 0.3, 1)", fill: "none" }
+        );
+      } catch {
+        // Content is already visible by default; animation is a bonus only.
+      }
+    });
   }, []);
 
   return (

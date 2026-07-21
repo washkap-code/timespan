@@ -1,7 +1,15 @@
 import Link from "next/link";
 import { Nav } from "@/components/marketing/Nav";
 import { Footer } from "@/components/marketing/Sections";
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
+
+// Plan/feature data changes rarely (admin-edited) and is public (RLS allows
+// anon SELECT). Using the cookie-free public client — rather than the
+// cookie-bound server client — lets this page be statically generated and
+// served from Vercel's CDN edge cache, revalidating in the background every
+// 5 minutes, so a burst of public traffic hits the cache instead of
+// Supabase on every single request.
+export const revalidate = 300;
 
 const TIER_STYLE: Record<string, string> = {
   launch: "",
@@ -38,7 +46,7 @@ const FEATURE_LABELS: Record<string, string> = {
 };
 
 export default async function PricingPage() {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data: plans } = await supabase.from("plans").select("*").order("sort_order");
 
   return (

@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { rateLimit } from "@/lib/rate-limit";
 
 async function toggleVote(formData: FormData) {
   "use server";
@@ -8,6 +9,9 @@ async function toggleVote(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return;
+
+  const limitResult = rateLimit(`roadmap-vote:${user.id}`, 30, 60_000);
+  if (!limitResult.ok) return;
 
   const requestId = formData.get("requestId") as string;
   const hasVoted = formData.get("hasVoted") === "true";

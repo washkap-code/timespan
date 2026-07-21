@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { solve, DEFAULT_WEIGHTS, type Employee, type Shift, type SolveWeights } from "@/lib/solver/solver";
+import { solve, DEFAULT_WEIGHTS, type Employee, type Shift, type SolveWeights, type CustomConstraint } from "@/lib/solver/solver";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -8,6 +9,27 @@ export async function POST(request: Request) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Solving is CPU-bound and writes to the DB, so it's the most expensive
+  // endpoint we expose — cap it per user to blunt scripted abuse or runaway
+  // client loops. IP is included as a secondary key so a single compromised
+  // account can't be used to flood from many IPs unnoticed.
+  const ip = getClientIp(request);
+  const limitResult = rateLimit(`solve:${user.id}`, 20, 60_000);
+  if (!limitResult.ok) {
+    return NextResponse.json(
+      { error: "Rate limit exceeded. Please slow down and try again shortly." },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": Math.ceil((limitResult.resetAt - Date.now()) / 1000).toString(),
+          "X-RateLimit-Limit": String(limitResult.limit),
+          "X-RateLimit-Remaining": "0",
+        },
+      }
+    );
+  }
+  rateLimit(`solve-ip:${ip}`, 60, 60_000);
 
   let weights: SolveWeights = DEFAULT_WEIGHTS;
   let label = "Schedule";
@@ -19,15 +41,22 @@ export async function POST(request: Request) {
     // No body sent — use defaults.
   }
 
-  const [{ data: employees, error: e1 }, { data: shifts, error: e2 }] = await Promise.all([
+  const [{ data: employees, error: e1 }, { data: shifts, error: e2 }, { data: customConstraints }] = await Promise.all([
     supabase.from("employees").select("id,name,skills,max_shifts,unavailable_days"),
     supabase.from("shifts").select("id,label,day,start_hour,end_hour,required_skill"),
+    supabase.from("custom_constraints").select("id,label,type,severity,weight,params,enabled").eq("enabled", true),
   ]);
   if (e1 || e2) return NextResponse.json({ error: (e1 ?? e2)!.message }, { status: 500 });
   if (!employees?.length || !shifts?.length)
     return NextResponse.json({ error: "Add employees and shifts first (or load demo data)." }, { status: 400 });
 
-  const result = solve(employees as Employee[], shifts as Shift[], 900, weights);
+  const result = solve(
+    employees as Employee[],
+    shifts as Shift[],
+    900,
+    weights,
+    (customConstraints ?? []) as CustomConstraint[]
+  );
 
   const { data: schedule, error: e3 } = await supabase
     .from("schedules")
@@ -39,6 +68,7 @@ export async function POST(request: Request) {
       score_soft: result.score.soft,
       constraint_breakdown: result.breakdown,
       weights_used: weights,
+      metrics: result.metrics,
     })
     .select()
     .single();

@@ -2,8 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { Employee, Shift, Assignment, ConstraintBreakdown, SolveMetrics, SolveWeights } from "@/lib/solver/solver";
+import type { Employee, Shift, Assignment, ConstraintBreakdown, SolveMetrics, SolveWeights, CustomConstraint } from "@/lib/solver/solver";
 import { DEFAULT_WEIGHTS } from "@/lib/solver/solver";
+
+const CUSTOM_CONSTRAINT_TYPES: { value: CustomConstraint["type"]; label: string; paramLabel: string; paramKey: string; defaultValue: number }[] = [
+  { value: "max_consecutive_days", label: "Max consecutive working days", paramLabel: "Max days", paramKey: "maxDays", defaultValue: 5 },
+  { value: "min_rest_hours", label: "Min rest hours between shifts", paramLabel: "Min hours", paramKey: "minRestHours", defaultValue: 11 },
+  { value: "blackout_day", label: "Blackout day (no shifts org-wide)", paramLabel: "Day (0=Mon)", paramKey: "day", defaultValue: 6 },
+];
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -54,17 +60,52 @@ export default function SchedulerPage() {
   const [profiles, setProfiles] = useState<ConfigProfile[]>([]);
   const [profileName, setProfileName] = useState("");
 
+  const [customConstraints, setCustomConstraints] = useState<CustomConstraint[]>([]);
+  const [newConstraintType, setNewConstraintType] = useState<CustomConstraint["type"]>("max_consecutive_days");
+  const [newConstraintValue, setNewConstraintValue] = useState(5);
+  const [newConstraintSeverity, setNewConstraintSeverity] = useState<"hard" | "soft">("soft");
+
   const load = useCallback(async () => {
     const supabase = createClient();
-    const [{ data: emps }, { data: shs }, { data: profs }] = await Promise.all([
+    const [{ data: emps }, { data: shs }, { data: profs }, { data: constraints }] = await Promise.all([
       supabase.from("employees").select("id,name,skills,max_shifts,unavailable_days").order("name"),
       supabase.from("shifts").select("id,label,day,start_hour,end_hour,required_skill").order("day"),
       supabase.from("config_profiles").select("id,name,weights,is_default").order("created_at"),
+      supabase.from("custom_constraints").select("id,label,type,severity,weight,params,enabled").order("created_at"),
     ]);
     setEmployees((emps as Employee[]) ?? []);
     setShifts((shs as Shift[]) ?? []);
     setProfiles((profs as ConfigProfile[]) ?? []);
+    setCustomConstraints((constraints as CustomConstraint[]) ?? []);
   }, []);
+
+  async function addCustomConstraint() {
+    const meta = CUSTOM_CONSTRAINT_TYPES.find((t) => t.value === newConstraintType)!;
+    const supabase = createClient();
+    const { data: userData } = await supabase.auth.getUser();
+    await supabase.from("custom_constraints").insert({
+      user_id: userData.user?.id,
+      label: `${meta.label} (${newConstraintValue})`,
+      type: newConstraintType,
+      severity: newConstraintSeverity,
+      weight: newConstraintSeverity === "hard" ? 1 : 2,
+      params: { [meta.paramKey]: newConstraintValue },
+      enabled: true,
+    });
+    await load();
+  }
+
+  async function toggleCustomConstraint(c: CustomConstraint) {
+    const supabase = createClient();
+    await supabase.from("custom_constraints").update({ enabled: !c.enabled }).eq("id", c.id);
+    await load();
+  }
+
+  async function deleteCustomConstraint(id: string) {
+    const supabase = createClient();
+    await supabase.from("custom_constraints").delete().eq("id", id);
+    await load();
+  }
 
   useEffect(() => {
     load();
@@ -251,6 +292,77 @@ export default function SchedulerPage() {
               Save profile
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Custom constraints — model extensions without touching solver code */}
+      <div className="mt-6 rounded-2xl border border-border bg-surface p-6">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted">Custom constraints</h2>
+        <p className="mt-1 text-xs text-muted">
+          Extend the model with additional rules — no code changes required. Takes effect on the next solve.
+        </p>
+        <div className="mt-4 space-y-2">
+          {customConstraints.map((c) => (
+            <div key={c.id} className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background px-4 py-2.5">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => toggleCustomConstraint(c)}
+                  className={`h-5 w-9 cursor-pointer rounded-full transition-colors ${c.enabled ? "bg-primary" : "bg-surface-2"}`}
+                  aria-label="Toggle constraint"
+                >
+                  <span className={`block h-4 w-4 translate-y-0.5 rounded-full bg-white transition-transform ${c.enabled ? "translate-x-[18px]" : "translate-x-0.5"}`} />
+                </button>
+                <span className="text-sm">{c.label}</span>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${c.severity === "hard" ? "bg-destructive/15 text-destructive" : "bg-surface-2 text-muted"}`}>
+                  {c.severity}
+                </span>
+              </div>
+              <button onClick={() => deleteCustomConstraint(c.id)} className="cursor-pointer text-xs text-muted hover:text-destructive">
+                Remove
+              </button>
+            </div>
+          ))}
+          {customConstraints.length === 0 && <p className="text-xs text-muted">No custom constraints yet.</p>}
+        </div>
+        <div className="mt-4 flex flex-wrap items-end gap-3">
+          <label className="text-xs text-muted">
+            Rule type
+            <select
+              value={newConstraintType}
+              onChange={(e) => setNewConstraintType(e.target.value as CustomConstraint["type"])}
+              className="mt-1 block rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary-light"
+            >
+              {CUSTOM_CONSTRAINT_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+          </label>
+          <label className="text-xs text-muted">
+            {CUSTOM_CONSTRAINT_TYPES.find((t) => t.value === newConstraintType)?.paramLabel}
+            <input
+              type="number"
+              value={newConstraintValue}
+              onChange={(e) => setNewConstraintValue(Number(e.target.value))}
+              className="mt-1 block w-28 rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary-light"
+            />
+          </label>
+          <label className="text-xs text-muted">
+            Severity
+            <select
+              value={newConstraintSeverity}
+              onChange={(e) => setNewConstraintSeverity(e.target.value as "hard" | "soft")}
+              className="mt-1 block rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary-light"
+            >
+              <option value="soft">Soft</option>
+              <option value="hard">Hard</option>
+            </select>
+          </label>
+          <button
+            onClick={addCustomConstraint}
+            className="cursor-pointer rounded-lg border border-primary/40 px-4 py-2 text-sm font-medium text-primary-light transition-colors hover:bg-primary/10"
+          >
+            Add constraint
+          </button>
         </div>
       </div>
 

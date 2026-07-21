@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { rateLimit } from "@/lib/rate-limit";
 
 async function submitTicket(formData: FormData) {
   "use server";
@@ -9,12 +10,22 @@ async function submitTicket(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) return;
 
+  // Cap ticket submissions per user to prevent support-portal spam/flooding.
+  const limitResult = rateLimit(`support-ticket:${user.id}`, 5, 60_000);
+  if (!limitResult.ok) return;
+
   const subject = formData.get("subject") as string;
   const message = formData.get("message") as string;
   const priority = formData.get("priority") as string;
-  if (!subject || !message) return;
+  if (!subject?.trim() || !message?.trim()) return;
+  if (subject.length > 200 || message.length > 5000) return;
 
-  await supabase.from("support_tickets").insert({ user_id: user.id, subject, message, priority });
+  await supabase.from("support_tickets").insert({
+    user_id: user.id,
+    subject: subject.trim().slice(0, 200),
+    message: message.trim().slice(0, 5000),
+    priority,
+  });
   revalidatePath("/dashboard/support");
 }
 

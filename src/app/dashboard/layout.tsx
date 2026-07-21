@@ -8,12 +8,14 @@ import { Logo } from "@/components/Logo";
 const nav = [
   { href: "/dashboard", label: "Overview" },
   { href: "/dashboard/scheduler", label: "Shift Scheduler" },
+  { href: "/dashboard/tasks", label: "Task Scheduler" },
   { href: "/dashboard/roadmap", label: "Roadmap" },
   { href: "/dashboard/support", label: "Support" },
 ];
 
 const adminNav = [
   { href: "/dashboard/admin", label: "Admin overview" },
+  { href: "/dashboard/admin/datasets", label: "Datasets" },
   { href: "/dashboard/admin/users", label: "Users" },
   { href: "/dashboard/admin/organizations", label: "Organizations" },
   { href: "/dashboard/admin/plans", label: "Plans & billing" },

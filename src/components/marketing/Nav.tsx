@@ -6,9 +6,11 @@ import { Logo } from "@/components/Logo";
 
 const links = [
   { href: "/#products", label: "Products" },
+  { href: "/#use-cases", label: "Use cases" },
   { href: "/#how-it-works", label: "How it works" },
   { href: "/#platform", label: "Platform" },
   { href: "/pricing", label: "Pricing" },
+  { href: "/docs", label: "Docs" },
 ];
 
 export function Nav() {

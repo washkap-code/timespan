@@ -73,13 +73,100 @@ export interface SolveResult {
   metrics: SolveMetrics;
 }
 
+/**
+ * User-defined constraints, addable/toggleable from the UI without touching
+ * this file. Deliberately a small closed set of parameterized rule *types*
+ * (not arbitrary user code) — that keeps the solver's attack surface
+ * unchanged while still letting admins extend the model.
+ */
+export interface CustomConstraint {
+  id: string;
+  label: string;
+  type: "max_consecutive_days" | "min_rest_hours" | "blackout_day";
+  severity: "hard" | "soft";
+  weight: number;
+  params: Record<string, number>;
+  enabled: boolean;
+}
+
 type Solution = Map<string, string | null>; // shift_id -> employee_id
+
+function evaluateCustomConstraints(
+  sol: Solution,
+  shifts: Shift[],
+  employees: Employee[],
+  constraints: CustomConstraint[]
+): { hardDelta: number; softDelta: number; perConstraint: Map<string, number> } {
+  let hardDelta = 0;
+  let softDelta = 0;
+  const perConstraint = new Map<string, number>();
+  if (!constraints.length) return { hardDelta, softDelta, perConstraint };
+
+  const shiftById = new Map(shifts.map((s) => [s.id, s]));
+  const perEmployee = new Map<string, Shift[]>();
+  for (const [shiftId, empId] of sol) {
+    if (!empId) continue;
+    const list = perEmployee.get(empId) ?? [];
+    list.push(shiftById.get(shiftId)!);
+    perEmployee.set(empId, list);
+  }
+
+  for (const c of constraints) {
+    if (!c.enabled) continue;
+    let violations = 0;
+
+    if (c.type === "blackout_day") {
+      const day = c.params.day ?? -1;
+      for (const [shiftId, empId] of sol) {
+        if (!empId) continue;
+        if (shiftById.get(shiftId)!.day === day) violations++;
+      }
+    } else if (c.type === "max_consecutive_days") {
+      const maxDays = c.params.maxDays ?? 6;
+      for (const [, list] of perEmployee) {
+        const days = [...new Set(list.map((s) => s.day))].sort((a, b) => a - b);
+        let run = 1;
+        for (let i = 1; i < days.length; i++) {
+          if (days[i] === days[i - 1] + 1) {
+            run++;
+            if (run > maxDays) violations++;
+          } else {
+            run = 1;
+          }
+        }
+      }
+    } else if (c.type === "min_rest_hours") {
+      const minRest = c.params.minRestHours ?? 11;
+      for (const [, list] of perEmployee) {
+        const sorted = [...list].sort((a, b) => a.day * 24 + a.start_hour - (b.day * 24 + b.start_hour));
+        for (let i = 1; i < sorted.length; i++) {
+          const prevEnd = sorted[i - 1].day * 24 + sorted[i - 1].end_hour;
+          const nextStart = sorted[i].day * 24 + sorted[i].start_hour;
+          if (nextStart > prevEnd && nextStart - prevEnd < minRest) violations++;
+        }
+      }
+    }
+
+    perConstraint.set(c.id, violations);
+    const delta = violations * c.weight;
+    if (c.severity === "hard") hardDelta -= delta;
+    else softDelta -= delta;
+  }
+
+  return { hardDelta, softDelta, perConstraint };
+}
 
 function overlaps(a: Shift, b: Shift): boolean {
   return a.day === b.day && a.start_hour < b.end_hour && b.start_hour < a.end_hour;
 }
 
-function scoreOf(sol: Solution, shifts: Shift[], employees: Employee[], w: SolveWeights) {
+function scoreOf(
+  sol: Solution,
+  shifts: Shift[],
+  employees: Employee[],
+  w: SolveWeights,
+  customConstraints: CustomConstraint[] = []
+) {
   const byId = new Map(employees.map((e) => [e.id, e]));
   const shiftById = new Map(shifts.map((s) => [s.id, s]));
   let hard = 0;
@@ -125,6 +212,12 @@ function scoreOf(sol: Solution, shifts: Shift[], employees: Employee[], w: Solve
     }
   }
 
+  if (customConstraints.length) {
+    const { hardDelta, softDelta } = evaluateCustomConstraints(sol, shifts, employees, customConstraints);
+    hard += hardDelta;
+    soft += softDelta;
+  }
+
   return { hard, soft };
 }
 
@@ -136,7 +229,8 @@ function better(a: { hard: number; soft: number }, b: { hard: number; soft: numb
 function analyze(
   sol: Solution,
   shifts: Shift[],
-  employees: Employee[]
+  employees: Employee[],
+  customConstraints: CustomConstraint[] = []
 ): { breakdown: ConstraintBreakdown[]; metrics: SolveMetrics } {
   const byId = new Map(employees.map((e) => [e.id, e]));
   const shiftById = new Map(shifts.map((s) => [s.id, s]));
@@ -201,6 +295,21 @@ function analyze(
     { code: "S3", label: "Same-day back-to-back", severity: "soft", count: sameDayNonOverlap, impact: -sameDayNonOverlap },
   ];
 
+  if (customConstraints.length) {
+    const { perConstraint } = evaluateCustomConstraints(sol, shifts, employees, customConstraints);
+    for (const c of customConstraints) {
+      if (!c.enabled) continue;
+      const count = perConstraint.get(c.id) ?? 0;
+      breakdown.push({
+        code: `C:${c.label}`,
+        label: c.label,
+        severity: c.severity,
+        count,
+        impact: -Math.round(count * c.weight),
+      });
+    }
+  }
+
   return { breakdown, metrics: { coverage, fairnessIndex, utilization } };
 }
 
@@ -208,7 +317,8 @@ export function solve(
   employees: Employee[],
   shifts: Shift[],
   timeMs = 900,
-  weights: SolveWeights = DEFAULT_WEIGHTS
+  weights: SolveWeights = DEFAULT_WEIGHTS,
+  customConstraints: CustomConstraint[] = []
 ): SolveResult {
   // --- Construction heuristic: hardest shifts first, best-fit employee ---
   const sol: Solution = new Map();
@@ -223,7 +333,7 @@ export function solve(
     let bestScore = { hard: -Infinity, soft: -Infinity };
     for (const emp of employees) {
       sol.set(shift.id, emp.id);
-      const s = scoreOf(sol, shifts, employees, weights);
+      const s = scoreOf(sol, shifts, employees, weights, customConstraints);
       if (better(s, bestScore)) {
         bestScore = s;
         bestEmp = emp.id;
@@ -233,7 +343,7 @@ export function solve(
   }
 
   // --- Late-acceptance hill climbing ---
-  let current = scoreOf(sol, shifts, employees, weights);
+  let current = scoreOf(sol, shifts, employees, weights, customConstraints);
   let best = current;
   let bestSol: Solution = new Map(sol);
   const lateSize = 40;
@@ -249,7 +359,7 @@ export function solve(
       Math.random() < 0.1 ? null : employees[Math.floor(Math.random() * employees.length)].id;
     if (pick === prev) continue;
     sol.set(shift.id, pick);
-    const cand = scoreOf(sol, shifts, employees, weights);
+    const cand = scoreOf(sol, shifts, employees, weights, customConstraints);
     const lateVal = late[iter % lateSize];
     if (better(cand, current) || cand.hard > lateVal.hard || (cand.hard === lateVal.hard && cand.soft >= lateVal.soft)) {
       current = cand;
@@ -263,7 +373,7 @@ export function solve(
     late[iter % lateSize] = current;
   }
 
-  const { breakdown, metrics } = analyze(bestSol, shifts, employees);
+  const { breakdown, metrics } = analyze(bestSol, shifts, employees, customConstraints);
 
   const explanation: string[] = [];
   explanation.push(
