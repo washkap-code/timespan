@@ -74,7 +74,8 @@ export default async function AdminPlans({
 
       {checkout === "success" && (
         <p className="mt-4 rounded-lg border border-success/40 bg-success/10 px-4 py-2.5 text-sm text-success">
-          Checkout complete — your plan updates as soon as Stripe confirms the subscription (usually a few seconds).
+          Checkout complete — your subscription is confirmed in Stripe. Plan status here syncs automatically once
+          the account&apos;s webhook is fully configured; if it doesn&apos;t update shortly, contact support and we&apos;ll reconcile it manually.
         </p>
       )}
       {checkout === "canceled" && (

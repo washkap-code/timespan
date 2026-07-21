@@ -234,7 +234,7 @@ const pillars = [
   { title: "Easy to integrate", body: "Stateless REST over JSON. Technology-agnostic. Test with your own data in a few lines of code." },
   { title: "Proven at scale", body: "Schedule hundreds of thousands of shifts and tens of thousands of jobs in a single run." },
   { title: "Explainable by design", body: "Every assignment comes with a score breakdown, so planners can see exactly why the plan looks the way it does." },
-  { title: "Real-world complexity", body: "Skills, fairness, labor laws, dependencies and hundreds of other constraints — replanned in real time." },
+  { title: "Real-world complexity", body: "Skills, fairness, rest rules, dependencies, capacity and drive time — 23 built-in constraint types across four solvers, plus custom rules you define yourself." },
 ];
 
 export function Platform() {
@@ -263,7 +263,7 @@ export function Platform() {
    invented traction. */
 
 const stats = [
-  { value: 7, suffix: "", label: "built-in constraint types, hard & soft" },
+  { value: 23, suffix: "", label: "built-in constraint types, hard & soft, across all four solvers" },
   { value: 1, suffix: "s", label: "typical solve time for a week-long roster" },
   { value: 3, suffix: "", label: "pricing tiers, from free API access to enterprise" },
   { value: 100, suffix: "%", label: "of runs return a full constraint breakdown" },

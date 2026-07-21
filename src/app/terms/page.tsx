@@ -32,10 +32,11 @@ export default function TermsPage() {
           <div>
             <h2 className="text-lg font-semibold text-foreground">2. The service</h2>
             <p className="mt-2">
-              TimeSpan provides an API and web platform for scheduling optimization, including an Employee
-              Shift Scheduling solver, dashboards, and supporting tools (config profiles, webhooks, support and
-              roadmap features). We may add, change, or remove features, and additional product verticals
-              (routing, task scheduling) may be released over time.
+              TimeSpan provides an API and web platform for scheduling and routing optimization, including
+              Employee Shift Scheduling, Task Scheduling, Field Service Routing, and Pickup &amp; Delivery
+              Routing solvers, an AI-assisted Copilot, dashboards, and supporting tools (config profiles,
+              webhooks, support and roadmap features). We may add, change, or remove features, and further
+              product verticals may be released over time.
             </p>
           </div>
 
